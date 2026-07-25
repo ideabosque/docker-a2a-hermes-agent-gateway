@@ -1,0 +1,61 @@
+# =============================================================================
+# SilvaEngine Gateway — Route Manifest (A2A / Hermes bridge only)
+# =============================================================================
+# This image exposes ONLY the a2a_daemon_engine module, providing the native
+# Agent-to-Agent (A2A) protocol surface and bridging A2A tasks to a Hermes
+# Agent API Server (see HERMES_* env vars). No KGE / RFQ / MCP / AI-agent
+# modules are registered, so their deps are not required.
+#
+# This manifest is self-contained (no !include children) and is baked into
+# the image at /app/routes.yaml. The gateway loads it via
+# GATEWAY_ROUTES_CONFIG_PATH=/app/routes.yaml (set in the Dockerfile).
+# Override at runtime by mounting your own routes.yaml and setting the path.
+#
+# handler_type: graphql | rest | sse | background | task_status | websocket
+# Paths carry only {endpoint_id}; the tenant partition id is supplied by the
+# "Part-Id" request header. The gateway builds partition_key = "{endpoint_id}#{Part-Id}".
+# =============================================================================
+
+modules:
+  # ── A2A Daemon Engine (Hermes bridge) ────────────────────────────────────
+  - name: a2a_daemon_engine
+    package: a2a_daemon_engine
+    transport: hybrid
+    config_class: "a2a_daemon_engine.handlers.config:Config"
+    config_init_style: kwargs
+    on_shutdown: "a2a_daemon_engine.handlers.sse_manager:cleanup_sse"
+    sse_manager: "a2a_daemon_engine.handlers.sse_manager:sse_manager"
+    routes:
+      # GraphQL — A2A core queries/mutations (agents, tasks, messages, settings)
+      - path: "/{endpoint_id}/a2a_core_graphql"
+        handler_type: graphql
+        dispatch: "a2a_daemon_engine.main:dispatch_graphql"
+        methods: ["POST"]
+        auth: true
+
+      # REST — A2A JSON-RPC 2.0 protocol handler (message/send, tasks/get, ...)
+      - path: "/{endpoint_id}/a2a"
+        handler_type: rest
+        dispatch: "a2a_daemon_engine.main:dispatch_a2a"
+        methods: ["POST"]
+        auth: true
+
+      # SSE stream (GET) — long-lived per-partition A2A task event stream
+      - path: "/{endpoint_id}/a2a_sse"
+        handler_type: sse
+        methods: ["GET"]
+        auth: true
+
+      # SSE POST — A2A JSON-RPC message + SSE push to connected clients
+      - path: "/{endpoint_id}/a2a_sse"
+        handler_type: rest
+        dispatch: "a2a_daemon_engine.main:dispatch_sse_message"
+        methods: ["POST"]
+        auth: true
+
+      # REST — A2A Agent Card discovery (public, no auth)
+      - path: "/{endpoint_id}/.well-known/agent-card.json"
+        handler_type: rest
+        dispatch: "a2a_daemon_engine.main:dispatch_agent_card"
+        methods: ["GET"]
+        auth: false

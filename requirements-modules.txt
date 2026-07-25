@@ -1,0 +1,15 @@
+# =============================================================================
+# Modules installed --no-deps (see Dockerfile)
+# =============================================================================
+# silvaengine_gateway and a2a_daemon_engine are installed WITHOUT dependency
+# resolution: silvaengine_gateway's metadata declares engine modules by bare
+# name (knowledge_graph_engine, rfq_engine, mcp-daemon-engine,
+# ai_coordination_engine) that are NOT on PyPI and are intentionally absent
+# from this A2A-only image. Their real third-party deps + the shared
+# SilvaEngine libraries are provided by requirements.txt.
+#
+# Over HTTPS (no SSH key required). For PRIVATE repos, pass a GitHub token at
+# build time (see Dockerfile / README):
+#   docker build --secret id=github_token,env=GITHUB_TOKEN .
+git+https://github.com/ideabosque/a2a_daemon_engine.git@main#egg=a2a_daemon_engine
+git+https://github.com/ideabosque/silvaengine_gateway.git@main#egg=silvaengine_gateway

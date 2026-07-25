@@ -1,0 +1,19 @@
+.git
+.gitignore
+.vscode
+README.md
+LICENSE
+Makefile
+docker-compose.yml
+pyproject.toml
+logs/*
+data/*
+www/*
+postgres_data/*
+postgres_logs/*
+.ssh
+*.bak
+__pycache__/
+*.pyc
+# NOTE: requirements.txt, requirements-modules.txt and routes.yaml are
+# intentionally NOT ignored — the build needs them.

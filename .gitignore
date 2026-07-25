@@ -1,0 +1,13 @@
+.env
+.env.local
+logs/*
+data/*
+www/*
+postgres_data/*
+postgres_logs/*
+!www/.gitkeep
+*.bak
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
