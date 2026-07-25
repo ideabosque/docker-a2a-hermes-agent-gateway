@@ -856,12 +856,12 @@ docker compose up -d          # initialize_tables=1 recreates tables + RLS
 
 ## ⚠️ Known limitations
 
-- **`tasks/get` returns "Task not found" on PostgreSQL-only deployments.**
-  Without AWS/DynamoDB the A2A SDK falls back to its in-memory `TaskStore`,
-  which is *not* the same store as the `a2a_core` PostgreSQL persistence that
-  `message/send` writes to. The task exists in `a2a_tasks`, but the SDK lookup
-  misses it. `test_hermes_gateway_live.py` records this as SKIP rather than
-  FAIL. Query the task via `a2a_core_graphql` or SQL in the meantime.
+- **`tasks/list` via JSON-RPC returns `{}`** (empty). The underlying GraphQL
+  `a2aTaskList` query works (verified returning tasks), but the A2A SDK's
+  `on_list_tasks` → `ListTasksResponse` path needs the right `ListTasksRequest`
+  params (e.g. `contextId`). `tasks/get` (single task) and `message/send` /
+  `message/stream` work fully. For a full listing, query
+  `POST /{ep}/a2a_core_graphql` with `query { a2aTaskList(limit: N) { a2aTaskList { taskId status } total } }`.
 - **`GATEWAY_WORKERS > 1` breaks streaming and rate limiting** unless shared
   backends and sticky sessions are configured — task state, rate counters, and
   the SSE registry are per-process.
@@ -871,7 +871,7 @@ docker compose up -d          # initialize_tables=1 recreates tables + RLS
   [Editing `.env`](#️-editing-env-read-this-first). The test scripts' own loader
   *does*, so a bad line can pass a test and still break the container.
 - **Module versions are unpinned** (`@main`); builds are not reproducible
-  across time.
+  across time. After an upstream change, rebuild with `--no-cache` to re-pull.
 
 ---
 
@@ -887,7 +887,8 @@ docker compose up -d          # initialize_tables=1 recreates tables + RLS
 | A2A tasks hang or error | Confirm Hermes is reachable from the gateway (`HERMES_API_URL`) and `API_SERVER_KEY` matches `HERMES_API_KEY` exactly — including no trailing inline comment. |
 | Hermes auth fails for no visible reason | An inline `#` comment in `.env` was absorbed into the value. Put comments on their own line. |
 | SSE connects but no chunks arrive | Send with `"stream": true`, connect the listener *before* sending, and check `A2A_STREAMING_ENABLED=true`. |
-| `tasks/get` says "Task not found" | Expected on PostgreSQL-only deployments — see [Known limitations](#-known-limitations). |
+| `tasks/get` says "Task not found" | After fixing the JSON-scalar / TaskStore / serialization bugs (now on `main`), this should not happen. If it does on an older image, rebuild with `--no-cache`. Verify the task exists: `SELECT * FROM a2a_tasks WHERE task_id='...'` in the `postgres` container. |
+| `tasks/list` returns `{}` (empty) | Known SDK limitation — the GraphQL list works; query `POST /{ep}/a2a_core_graphql` with `a2aTaskList` instead. See [Known limitations](#-known-limitations). |
 | `make status` / `make shell`: "No such container" | You renamed the container in `.env`. Make doesn't read `.env` — run `A2A_GATEWAY_CONTAINER_NAME=<name> make shell`. |
 | Bundled Hermes not starting | Ensure `COMPOSE_PROFILES` includes `hermes`, and that `www/hermes` + `www/projects` exist. |
 | Bundled Postgres not starting | Ensure `COMPOSE_PROFILES` includes `postgres` and `PG_HOST=postgres`. |
